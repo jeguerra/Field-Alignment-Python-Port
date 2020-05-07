@@ -1,0 +1,2 @@
+Please note that if MATLAB exists, the preferred method for producing library is using the FA2D*CodeGen.m files
+On MacOS, this is the only method that works, on Linux CodeGen or make will both work
