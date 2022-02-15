@@ -36,8 +36,8 @@ for i = 1:size(XI,1)
        dx = xc - left;
        dy = yc - top;
        val = 0;
-       for kx = 0:3,
-           for ky = 0:3,
+       for kx = 0:3
+           for ky = 0:3
                val = val+alpha(kx+1,ky+1)*dx^kx * dy^ky;
            end
        end
