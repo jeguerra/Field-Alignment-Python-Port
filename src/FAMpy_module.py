@@ -207,8 +207,8 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               
               #print(ddx.shape, ddy.shape, X.shape)
               # Initiate force vectors and compute gradients
-              dXbx = ddx.dot(X)
-              dXby = (ddy.dot(X.T)).T
+              dXbx = ddx.dot(Xb)
+              dXby = (ddy.dot(Xb.T)).T
               t1 = -dXbx * dq
               t2 = -dXby * dq
               
@@ -234,6 +234,8 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               
               fux = (-fFx * xpy + fac2 * fFy) * np.reciprocal(zz)
               fuy = (fFx * fac2 - ypx * fFy) * np.reciprocal(zz)
+              
+              print(fux)
               
               # Recover displacements
               ux = np.real(sp.fft.ifft2(sp.fft.ifftshift(fux), s=(nx, ny)))
