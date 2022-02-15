@@ -20,7 +20,7 @@ if __name__ == '__main__':
        # User parameters
        tdex = 0
        zdex = 9
-       fname = 'reventador3'
+       fname = 'reventador9'
        fiinput = '/scratch/HYSPLIT_DATA/reventador/' + fname + '.nc'
        
        # Field Alignment tuning
@@ -28,7 +28,7 @@ if __name__ == '__main__':
        lscale = 1 #change from 1~10, 1 is the best (according to...)
        vmode = 4 #hyperviscosity model
        
-       meml = range(13)
+       meml = range(3)
        nmem = len(meml)
        
        # Load test data and data dependent parameters
@@ -74,8 +74,9 @@ if __name__ == '__main__':
               for jmem in meml:
                      if jmem != imem:
                             print('Aligning: ', str(imem), ' to ', str(jmem))
+                            XX, YY = fpym.computeResizeUniformSampleInputs(hmemT[:,:,imem], hmemT[:,:,jmem])
                             qxyT_mem[:,:,0,imem], qxyT_mem[:,:,1,imem] = \
-                                   fpym.computeSolverSCA(hmemT[:,:,imem], hmemT[:,:,jmem], 
+                                   fpym.computeSolverSCA(XX, YY, 
                                                          niter, 0.1, lscale, vmode)
                                    
               # Compute mean of all displacement vectors
