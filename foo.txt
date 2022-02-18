@@ -1,2 +1,0 @@
-memFA20mem;
-exit;
