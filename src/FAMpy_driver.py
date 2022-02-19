@@ -27,7 +27,7 @@ if __name__ == '__main__':
        # Field Alignment tuning
        niter = 1000 # max iterations for spectral solver 
        lscale = 1 #change from 1~10, 1 is the best (according to...)
-       vmode = 4 #hyperviscosity model
+       vmode = 4 #viscosity or hyperviscosity model (2 or 4)
        
        # Load test data and data dependent parameters
        m_fid = Dataset(fiinput, 'r', format='NETCDF4')
@@ -35,6 +35,7 @@ if __name__ == '__main__':
        # Pull in the 2D domain variables CHANGE AS NEEDED
        lons = m_fid.variables['longitude'][:]
        lats = m_fid.variables['latitude'][:]
+       plons, plats = np.meshgrid(lons, lats)
        
        # Get the domain sizes
        nlon = lons.shape[0]
@@ -49,6 +50,7 @@ if __name__ == '__main__':
        # Rearrange data and apply windowing function QC
        hmem0 = hmemAll[-1,:,:,:]
        osize = hmem0.shape
+       #meml = range(5) 
        meml = range(osize[0])
        nmem = len(meml)
        hmemT = np.copy(hmem0)
@@ -82,9 +84,10 @@ if __name__ == '__main__':
        # Main solver loop 
        for imem in meml:
               print('Reference member: ', str(imem))
-              qxyT_mem = np.zeros((nlat,nlon,2,nmem))
+              qxyT_mem = np.zeros((nlat,nlon,2,nmem-1))
               
               thisHmemT = hmemT[imem,:,:]
+              jj = 0
               for jmem in meml:
                      if jmem != imem:
                             thatHmemT = hmemT[jmem,:,:]
@@ -95,8 +98,9 @@ if __name__ == '__main__':
                             
                             qxTsave, qyTsave = fpym.computeResizeDisplacementOutputs(thisHmemT, thatHmemT, QXT, QYT) 
                             
-                            qxyT_mem[:,:,0,imem] = qxTsave
-                            qxyT_mem[:,:,1,imem] = qyTsave
+                            qxyT_mem[:,:,0,jj] = qxTsave
+                            qxyT_mem[:,:,1,jj] = qyTsave
+                            jj += 1
                             
               # Compute mean of all displacement vectors
               qxy = np.zeros((nlon,nlat,2))
@@ -111,16 +115,21 @@ if __name__ == '__main__':
               # Now align the member imem by advection
               hmemT_FA = fpym.advect(thisHmemT, qxyT[:,:,0], qxyT[:,:,1])
               hmem_FA[:,:,imem] = hmemT_FA.T
-              
+              '''
+              plt.contour(plons, plats, thisHmemT, [5.0E-4], colors='k', linewidths=2.0)
+              plt.contour(plons, plats, hmemT_FA, [5.0E-4], colors='r', linewidths=2.0)
+              plt.show()
+              input()
+              plt.close()
+              '''
        #%% Make some nice plots
-       plons, plats = np.meshgrid(lons, lats)
        
        fig, axs = plt.subplots(nrows=2, ncols=2)
        axs = axs.flatten()
        
        cl = 5.0E-4 # GOOD FOR THE REVENTADOR CASE ONLY!
-       xlims = (-77.8, -77.2) # reventador1
-       ylims = (-0.7, 0.0) # reventador1
+       xlims = (-77.8, -77.4) # reventador1
+       ylims = (-0.4, 0.0) # reventador1
        #xlims = (-176.0, -164.0) # kasatochi5
        #ylims = (46.5, 53.0) # kasatochi5
        prop_cycle = plt.rcParams['axes.prop_cycle']

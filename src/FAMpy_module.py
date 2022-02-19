@@ -102,13 +102,13 @@ def computeResizeDisplacementOutputs(X, Y, qtx, qty):
        
        return qsavex, qsavey
 
-# Advection by simple semi-Lagrangian transport
+# Advection by simple semi-Lagrangian transport (linear interpolation approach)
 def advect(X0, qx, qy):
        
        if qx.size == 0:
               qxn = qx
               qyn = qy
-              XOut = np.copy(X0)
+              XOut_2D = np.copy(X0)
        else:
               qxn = np.nan_to_num(qx)
               qyn = np.nan_to_num(qy)
@@ -124,20 +124,52 @@ def advect(X0, qx, qy):
        yb = np.arange(1,Xb.shape[0]+1)
        xxb, yyb = np.meshgrid(xb, yb)
        
+       xi = bw + xx0 + qxn
+       yi = bw + yy0 + qyn
+       
        # Apply interpolation to enforce displacements
+       '''
        XOut_smpf = sp.interpolate.RectBivariateSpline(xb, yb, Xb.T)
-       xi = bw + xx0 - qxn
-       yi = bw + yy0 - qyn
        XOut = XOut_smpf.ev(xi.flatten(), \
                            yi.flatten())
        XOut_2D = numericalCleanUp(np.reshape(XOut, xx0.shape, order='C'))
-       
-       # Equivalent but slower
-       #XOut = sp.interpolate.griddata((xxb.flatten(), yyb.flatten()), Xb.flatten(),
-       #                               ((bw + xx0 - qxn), (bw + yy0 - qyn)), method='cubic')
+       '''
+       # Linear interpolation is monotonic which is necessary for this advection scheme
+       XOut_2D = sp.interpolate.griddata((xxb.flatten(), yyb.flatten()), Xb.flatten(),
+                                      (xi, yi), method='linear')
        
        return XOut_2D
 
+# Advection of an image by spatial derivatives
+def advectOp(X0, qx, qy):
+       
+       if qx.size == 0:
+              qxn = qx
+              qyn = qy
+              XOut = np.copy(X0)
+       else:
+              qxn = np.nan_to_num(qx)
+              qyn = np.nan_to_num(qy)
+              
+       x0 = np.arange(1,X0.shape[1]+1)
+       y0 = np.arange(1,X0.shape[0]+1)
+       xx0, yy0 = np.meshgrid(x0, y0)
+       
+       # Compute CS derivative matrices on the index grid
+       '''
+       ddx, d2dx = derv.computeCubicSplineDerivativeMatrix(x0, False, False, False, False, None)
+       ddy, d2dy = derv.computeCubicSplineDerivativeMatrix(y0, False, False, False, False, None) 
+       dX = qxn * (ddx @ X0.T).T + qyn * (ddy @ X0)
+       '''
+       #'''
+       dXbx = np.gradient(X0, axis=1, edge_order=2)
+       dXby = np.gradient(X0, axis=0, edge_order=2)
+       dX = qxn * dXbx + qyn * dXby
+       #'''
+       XOut = X0 + dX
+       
+       return XOut
+       
 def computeSolverSCA(X, Y, niter, wt, lscale, mode):
        
        # Yang and Ravela SCA method 2009 (Yang's Masters Thesis)
@@ -150,7 +182,7 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
        
        #%% User parameters and initializations
        convTol = 1.0E-6
-       errv0 = 1.0
+       errv0 = np.inf
        derrv = np.inf
        w1 = 1.0
        w2 = w1 / 3.0 # Newtonian fluid constants
@@ -180,7 +212,7 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
 
        # Set up the frequency domain
        lscale = 2 * np.round(0.5 * (lscale * nx + nx))
-       nzero = np.array([1.0E-8]) # near zero frequency...
+       nzero = np.array([1.0E-7]) # near zero frequency...
        nfs = np.array(np.arange(-lscale/2,0)) # negative frequencies
        pfs = np.array(np.arange(1,lscale/2)) # positive frequencies
        ffs = np.concatenate((nfs, nzero, pfs))
@@ -228,9 +260,7 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               #Xb = sp.interpolate.griddata((bdx.flatten(), bdy.flatten()), \
               #                             Xb.flatten(), (qx, qy), \
               #                            method='linear', fill_value=0.0)
-                     
-              #plotSurface(aa, bb, Xb)
-              
+                                   
               # Compute the forcing
               dq = (Xb - Y)
               # Set all boundary edges to zero
@@ -241,8 +271,8 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               
               #print(ddx.shape, ddy.shape, X.shape)
               # Initiate force vectors and compute gradients
-              #dXbx = np.gradient(Xb, axis=1, edge_order=2) #(ddx.dot(Xb.T)).T
-              #dXby = np.gradient(Xb, axis=0, edge_order=2) #ddy.dot(Xb)
+              #dXbx = np.gradient(Xb, axis=1, edge_order=2)
+              #dXby = np.gradient(Xb, axis=0, edge_order=2)
               dXbx = (ddxs.dot(Xb.T)).T
               dXby = ddys.dot(Xb)
               t1 = -dXbx * dq
@@ -254,7 +284,7 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               fFy = sp.fft.fftshift(sp.fft.fft2(t2, s=(lffs, lffs)))
               
               # Set values at the center frequency to avoid singularity...
-              lscalei = int(lscale/2)
+              lscalei = len(nfs)
               fFx[lscalei, lscalei] = 0.0
               fFy[lscalei, lscalei] = 0.0
 
