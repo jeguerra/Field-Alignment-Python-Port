@@ -1,2 +1,6 @@
-Please note that if MATLAB exists, the preferred method for producing library is using the FA2D*CodeGen.m files
-On MacOS, this is the only method that works, on Linux CodeGen or make will both work
+Initial Python port of the Field Aligned mean approach based on:
+
+Feng, J., Zhang, J., Toth, Z., Peña, M., & Ravela, S. (2020). 
+"A New Measure of Ensemble Central Tendency", 
+Weather and Forecasting, 35(3), 879-889. 
+https://journals.ametsoc.org/view/journals/wefo/35/3/waf-d-19-0213.1.xml
