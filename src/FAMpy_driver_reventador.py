@@ -43,14 +43,10 @@ if __name__ == '__main__':
        
        # Pull the operating variable to align along with the number of members
        hmemAll =  m_fid.variables['Flight_levelA'][:] # reventador1
-       #hmemAll =  m_fid.variables['__xarray_dataarray_variable__'][:,:,:,:] # kasatochi5
        
-       # Perform alignment (double loop)
-       
-       # Rearrange data and apply windowing function QC
+       #%% Rearrange data and apply windowing function QC
        hmem0 = hmemAll[-1,:,:,:]
-       osize = hmem0.shape
-       #meml = range(5) 
+       osize = hmem0.shape 
        meml = range(osize[0])
        nmem = len(meml)
        hmemT = np.copy(hmem0)
@@ -62,66 +58,11 @@ if __name__ == '__main__':
        for imem in meml:
               hmemT_nominal = np.copy(hmemT[imem,:,:])
               hmemT[imem,:,:] = hmemT_nominal * win.T
-       #'''       
-       # Initialize the aligned ensemble
-       hmem_FA = np.zeros((nlon,nlat,nmem))
        
-       XX = []
-       # Resize images loop
-       for imem in meml:
-              thisHmemT = hmemT[imem,:,:]
+       #%% INVOKE THE SOLVER!
+       solver_args = (niter, lscale, vmode, nlon, nlat, nmem, meml, hmemT)
+       hmemT_FA, hmem_FA, qxyT, qxy = fpym.computeAlignedEnsemble(*solver_args)
               
-              if imem == 0:
-                     sx = thisHmemT.shape[0]
-                     sy = thisHmemT.shape[1]
-                     
-                     # Find the next lesser power of 2
-                     sx2 = fpym.highestPowerof2(sx)
-                     sy2 = fpym.highestPowerof2(sy)
-              
-              XX.append(fpym.myImResize(thisHmemT, (sx2, sy2)))
-       
-       # Main solver loop 
-       for imem in meml:
-              print('Reference member: ', str(imem))
-              qxyT_mem = np.zeros((nlat,nlon,2,nmem-1))
-              
-              thisHmemT = hmemT[imem,:,:]
-              jj = 0
-              for jmem in meml:
-                     if jmem != imem:
-                            thatHmemT = hmemT[jmem,:,:]
-                            
-                            print('Aligning: ', str(imem), ' to ', str(jmem))
-                            QXT, QYT = fpym.computeSolverSCA(XX[imem], XX[jmem], 
-                                          niter, 0.1, lscale, vmode)
-                            
-                            qxTsave, qyTsave = fpym.computeResizeDisplacementOutputs(thisHmemT, thatHmemT, QXT, QYT) 
-                            
-                            qxyT_mem[:,:,0,jj] = qxTsave
-                            qxyT_mem[:,:,1,jj] = qyTsave
-                            jj += 1
-                            
-              # Compute mean of all displacement vectors
-              qxy = np.zeros((nlon,nlat,2))
-              qxyT = np.zeros((nlat,nlon,2))
-              qxyT[:,:,0] = np.mean(qxyT_mem[:,:,0,:], axis=2)
-              qxyT[:,:,1] = np.mean(qxyT_mem[:,:,1,:], axis=2)
-              qxy[:,:,0] = np.copy(qxyT[:,:,0].T)
-              qxy[:,:,1] = np.copy(qxyT[:,:,1].T)
-              
-              print('Found displacement vector successfully.')
-              
-              # Now align the member imem by advection
-              hmemT_FA = fpym.advect(thisHmemT, qxyT[:,:,0], qxyT[:,:,1])
-              hmem_FA[:,:,imem] = hmemT_FA.T
-              '''
-              plt.contour(plons, plats, thisHmemT, [5.0E-4], colors='k', linewidths=2.0)
-              plt.contour(plons, plats, hmemT_FA, [5.0E-4], colors='r', linewidths=2.0)
-              plt.show()
-              input()
-              plt.close()
-              '''
        #%% Make some nice plots
        
        fig, axs = plt.subplots(nrows=2, ncols=2)
@@ -130,8 +71,6 @@ if __name__ == '__main__':
        cl = 5.0E-4 # GOOD FOR THE REVENTADOR CASE ONLY!
        xlims = (-77.8, -77.4) # reventador1
        ylims = (-0.4, 0.0) # reventador1
-       #xlims = (-176.0, -164.0) # kasatochi5
-       #ylims = (46.5, 53.0) # kasatochi5
        prop_cycle = plt.rcParams['axes.prop_cycle']
        colors = prop_cycle.by_key()['color']
        cc = 0
