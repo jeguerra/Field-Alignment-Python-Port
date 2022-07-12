@@ -70,7 +70,7 @@ for imem = 1:1:nmem  % reference member
 	for i = 1:1:nmem   % reference mem to different members
 		fprintf('imem is:'); disp(i);
 		[qxyT_mem(:,:,1,i),qxyT_mem(:,:,2,i)] = ...
-			FA2DImNoHLIB(hmemT(:,:,imem),hmemT(:,:,i),128,0.1,iter,4,lscale);
+			FA2DImNoHLIB(hmemT(:,:,imem),hmemT(:,:,i),0.1,iter,4,lscale);
 	end
 
 	%------calculate the mean of all DVs----

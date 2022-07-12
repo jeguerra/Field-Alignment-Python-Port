@@ -14,11 +14,11 @@ t1 = clock;
 %dir = ...    filename = ...
 tdex = 1;
 zdex = 10;
-fname = 'reventador3';
-fiinput = ['/scratch/HYSPLIT_DATA/reventador/' fname '.nc'];
+fname = 'reventador1';
+fiinput = ['/media/jeguerra/FastDATA/Field-Alignment-Python-Port/test_data/' fname '.nc'];
 %----read data---
 
-meml = 1:13;
+meml = 1:10;
 nmem = length(meml);
 lats = (ncread(fiinput, 'latitude'));
 nlat = size(lats); nlat = nlat(1);
@@ -32,7 +32,7 @@ alg_mean = zeros(nlon,nlat);
 pdex = [2,1,3];
 
 %----parameters for field alignment
-iter = 1000;
+iter = 5;
 lscale = 1;   %change from 1~10,   1 is the best
 vmode = 4;  %hyperviscosity model
 
@@ -75,12 +75,14 @@ for tt=1:1
         %------derive the displacement vectors-------
         %hmemT(:,:,1),hmemT(:,:,2) ->->-> move 1 to 2
         %hmemT(:,:,i),hmemT(:,:,:) ->->-> move i to 1~20 member
+        thisHmemT = hmemT(:,:,imem);
         for i = meml  % reference mem to different members
             if imem ~= i
+                thatHmemT = hmemT(:,:,i);
                 amess = sprintf(['Aligning: ', int2str(imem), ' to ' int2str(i)]);
                 disp(amess);
                 [qxyT_mem(:,:,1,i),qxyT_mem(:,:,2,i)] = ...
-                    FA2DImNoHLIB(hmemT(:,:,imem),hmemT(:,:,i),0.1,iter,vmode,lscale);
+                    FA2DImNoHLIB(thisHmemT,thatHmemT,0.1,iter,vmode,lscale);
             end
         end
 

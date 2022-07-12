@@ -16,4 +16,4 @@ end
 Xb = Border(X0,25);
 [xx,yy] = meshgrid(1:size(X0,2),1:size(X0,1));
 
-XOut = interp2(Xb,25+xx-qx,25+yy-qy, 'bilinear',0);
+XOut = interp2(Xb,25+xx-qx,25+yy-qy, 'cubic',0);

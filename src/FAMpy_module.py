@@ -70,7 +70,7 @@ def myImResize(IM, sz):
        by = np.arange(1,szin[0]+1)
        bdx,bdy = np.meshgrid(bx, by)
        
-       out_spmf = sp.interpolate.RectBivariateSpline(bx, by, IM.T)
+       out_spmf = sp.interpolate.RectBivariateSpline(bx, by, IM.T, kx=5, ky=5)
        out = out_spmf.ev(x.flatten(), y.flatten())
        out_2D = numericalCleanUp(np.reshape(out, x.shape, order='C'))
        
@@ -95,8 +95,8 @@ def computeResizeDisplacementOutputs(X, Y, qtx, qty):
        sy2 = highestPowerof2(sy)
        
        # Resample source and target images to the original size (sx, sy)
-       qsavex = myImResize(qtx, (sx, sy)) * sy/sx2 
-       qsavey = myImResize(qtx, (sx, sy)) * sx/sy2 
+       qsavex = myImResize(qtx, (sx, sy))# * sy/sx2 
+       qsavey = myImResize(qty, (sx, sy))# * sx/sy2 
        
        return qsavex, qsavey
 
@@ -127,15 +127,15 @@ def advect(X0, qx, qy):
        
        # Apply interpolation to enforce displacements
        '''
-       XOut_smpf = sp.interpolate.RectBivariateSpline(xb, yb, Xb.T)
-       XOut = XOut_smpf.ev(xi.flatten(), \
-                           yi.flatten())
+       XOut_smpf = sp.interpolate.RectBivariateSpline(xb, yb, Xb.T, kx=1, ky=1)
+       XOut = XOut_smpf.ev(xi.flatten(), yi.flatten())
        XOut_2D = numericalCleanUp(np.reshape(XOut, xx0.shape, order='C'))
        '''
+       #'''
        # Linear interpolation is monotonic which is necessary for this advection scheme
        XOut_2D = sp.interpolate.griddata((xxb.flatten(), yyb.flatten()), Xb.flatten(),
                                       (xi, yi), method='linear', fill_value=0.0)
-       
+       #'''
        return XOut_2D
 
 # Advection of an image by spatial derivatives
@@ -149,16 +149,16 @@ def advectOp(X0, qx, qy):
               qxn = np.nan_to_num(qx)
               qyn = np.nan_to_num(qy)
               
-       x0 = np.arange(1,X0.shape[1]+1)
-       y0 = np.arange(1,X0.shape[0]+1)
-       xx0, yy0 = np.meshgrid(x0, y0)
-       
-       # Advection by gradients (2nd order numpy gradient ops...)
-       dXbx = np.gradient(X0, axis=1, edge_order=2)
-       dXby = np.gradient(X0, axis=0, edge_order=2)
-       dX = qxn * dXbx + qyn * dXby
-       
-       XOut = X0 - dX
+              x0 = np.arange(1,X0.shape[1]+1)
+              y0 = np.arange(1,X0.shape[0]+1)
+              xx0, yy0 = np.meshgrid(x0, y0)
+              
+              # Advection by gradients (2nd order numpy gradient ops...)
+              dXbx = np.gradient(X0, axis=1, edge_order=2)
+              dXby = np.gradient(X0, axis=0, edge_order=2)
+              dX = qxn * dXbx + qyn * dXby
+              
+              XOut = X0 - dX
        
        return XOut
 
@@ -190,23 +190,25 @@ def computeAlignedEnsemble(niter, lscale, vmode, nlon, nlat, nmem, meml, hmemT):
               thisHmemT = hmemT[imem,:,:]
               
               # Compute displacement solver on upper triangle of data matrix
-              for jmem in meml[imem+1:]:
-                     thatHmemT = hmemT[jmem,:,:]
-                     
-                     print('Aligning: ', str(imem), ' to ', str(jmem))
-                     QXT, QYT = computeSolverSCA(XX[imem], XX[jmem], 
-                                   niter, 0.1, lscale, vmode)
-                     
-                     qxTsave, qyTsave = computeResizeDisplacementOutputs(thisHmemT, thatHmemT, QXT, QYT) 
-                     
-                     qxyT_mem[:,:,0,imem,jmem] = qxTsave
-                     qxyT_mem[:,:,1,imem,jmem] = qyTsave
+              for jmem in meml: #[imem+1:]:
+                     if jmem != imem:
+                            thatHmemT = hmemT[jmem,:,:]
+                            
+                            print('Aligning: ', str(imem), ' to ', str(jmem))
+                            QXT, QYT = computeSolverSCA(XX[imem], XX[jmem], 
+                                          niter, 0.1, lscale, vmode)
+                            
+                            qxTsave, qyTsave = computeResizeDisplacementOutputs(thisHmemT, thatHmemT, QXT, QYT) 
+                            
+                            qxyT_mem[:,:,0,imem,jmem] = qxTsave
+                            qxyT_mem[:,:,1,imem,jmem] = qyTsave
               
+              '''
               # Fill lower triangle by skew symmetry of displacements
               for jmem in meml[0:imem+1]:
                      qxyT_mem[:,:,0,imem,jmem] = -qxyT_mem[:,:,0,jmem,imem]
                      qxyT_mem[:,:,1,imem,jmem] = -qxyT_mem[:,:,0,jmem,imem]
-                            
+              '''              
                             
               # Compute mean of all displacement vectors
               qxy = np.zeros((nlon,nlat,2))
@@ -235,11 +237,12 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
        # mode (= 2 or 4) for power law approximation type
        
        #%% User parameters and initializations
-       convTol = 1.0E-6
+       convTol = 1.0E-4 # for displacements in pixel space
        errv0 = np.inf
        derrv = np.inf
        w1 = 1.0
        w2 = w1 / 3.0 # Newtonian fluid constants
+       applyNormalization = True
        
        # Check that X and Y match size size
        if X.shape != Y.shape:
@@ -259,10 +262,13 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
        bdx, bdy = np.meshgrid(pblmr2,pblmr1)
        
        # Normalize the images prior to alignment - relative to source
-       mxb = np.amin(X)
-       dxb = np.amax(X) - mxb
-       Xb = np.copy((X - mxb) / dxb)
-       Y = np.copy((Y - mxb) / dxb)
+       if applyNormalization:
+           mxb = np.amin(X)
+           dxb = np.amax(X) - mxb
+           Xb = np.copy((X - mxb) / dxb)
+           Y = np.copy((Y - mxb) / dxb)
+       else:
+           Xb = np.copy(X)
 
        # Set up the frequency domain
        fxdom = 2 * np.round(0.5 * (lscale * nx + nx))
@@ -290,15 +296,26 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
        #%% Main iteration loop
        ii = 1
        
-       while (ii < niter) and (derrv > convTol):
+       # Precompute deformation filters
+       fac0 = w1 * (np.power(n, mode) + np.power(m, mode))
+       fac1 = np.copy(w2 * np.power(n, 2.0) + fac0)
+       fac2 = w2 * n * m
+       fac4 = np.copy(w2 * np.power(m, 2.0) + fac0)
+       
+       xpy = fac1 - fac2
+       ypx = fac4 - fac2
+       zz1 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(fxdom))
+       zz2 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(fydom))
+       
+       while (ii < niter) and (errv0 > convTol):
               
               # Compute difference p - q, interpolate and update
-              qx = aa - ux        
-              qy = bb - uy
+              qx = aa - qtx        
+              qy = bb - qty
        
               #'''
               # Apply displacements by interpolation to updated coords (remapping)
-              Xb_spmf = sp.interpolate.RectBivariateSpline(pblmr2, pblmr1, Xb.T, kx=5, ky=5)
+              Xb_spmf = sp.interpolate.RectBivariateSpline(pblmr2, pblmr1, Xb.T, kx=1, ky=1)
               Xb_new = Xb_spmf.ev(qx.flatten(), qy.flatten())
               Xb = numericalCleanUp(np.reshape(Xb_new, qx.shape, order='C'))
               del(Xb_new)
@@ -338,22 +355,12 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               fFy[sdex2, sdex1] = 0.0
 
               # Apply the deformation filters
-              fac0 = w1 * (np.power(n, mode) + np.power(m, mode))
-              fac1 = np.copy(w2 * np.power(n, 2.0) + fac0)
-              fac2 = w2 * n * m
-              fac4 = np.copy(w2 * np.power(m, 2.0) + fac0)
-              
-              xpy = fac1 - fac2
-              ypx = fac4 - fac2
-              zz1 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(fxdom))
-              zz2 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(fydom))
-                            
               fux = (-fFx * xpy + fac2 * fFy) * np.reciprocal(zz1)
               fuy = (fFx * fac2 - ypx * fFy) * np.reciprocal(zz2)
               
               # Recover displacements
-              ux = np.real(sp.fft.ifft2(sp.fft.ifftshift(fux), s=ux.shape))
-              uy = np.real(sp.fft.ifft2(sp.fft.ifftshift(fuy), s=uy.shape))
+              ux = 0.5 * np.real(sp.fft.ifft2(sp.fft.ifftshift(fux), s=ux.shape))
+              uy = 0.5 * np.real(sp.fft.ifft2(sp.fft.ifftshift(fuy), s=uy.shape))
                             
               # Change in the max-norm of displacements signals minimum
               errv1 = max(np.amax(np.abs(ux)), np.amax(np.abs(uy)))
@@ -361,11 +368,11 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               errv0 = np.copy(errv1)
               
               # update the solution
-              qtx += ux 
+              qtx += ux
               qty += uy
               
               ii += 1
        
        qnorm = max(np.amax(np.abs(qtx)), np.amax(np.abs(qty)))
-       print('Solution loop exit on: ', derrv, qnorm, ii)
+       print('Solution loop exit on: ', errv0, qnorm, ii)
        return qtx, qty

@@ -11,7 +11,7 @@ function [qtx,qty,qq,errl] = FA2DC4V2LIB(Xb1,Y1,H1,Xu1,Yu1,Hu1,msk,niter,wt,lsca
 % wt -- what's the constraint weight.
 % mode -- power law mode 2 or 4.
 % debug --
-%% Copyright  © Sai Ravela, MIT, 2003-2012.
+%% Copyright  ï¿½ Sai Ravela, MIT, 2003-2012.
 % This code is part of the Field Alignment System and Testbed,
 % developed by Ravela et al. at the Massachusetts Institute of Technology.
 % All rights reserved.

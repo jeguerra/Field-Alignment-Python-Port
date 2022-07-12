@@ -11,7 +11,7 @@ function [qtx,qty] = FA2DC4V2_simple(Xb,Y,niter,wt,lscale,mode)
 % wt -- what's the constraint weight.
 % mode -- power law mode 2 or 4.
 % debug --
-%% Copyright  © Sai Ravela, MIT, 2003-2012.
+% Copyright Sai Ravela, MIT, 2003-2012.
 % This code is part of the Field Alignment System and Testbed,
 % developed by Ravela et al. at the Massachusetts Institute of Technology.
 % All rights reserved.
@@ -33,7 +33,8 @@ Xb = (Xb - mxb)./dxb;
 Y = (Y - mxb)./dxb;
 
 %% We will solve spectrally.
-lscale=round((lscale*nx+nx)/2)*2;
+nn = max(nx,ny);
+lscale=round((lscale*nn+nn)/2)*2;
 [m,n] = meshgrid([-lscale/2:-1 1e-8 1:lscale/2-1], [-lscale/2:-1 1e-8 1:lscale/2-1]);
 
 % Initialize forcing
@@ -47,23 +48,30 @@ iter = 0;
 errv0 = inf; 
 derrv = inf;
 
+%m(1,:)
+%size(m)
+%paus
+
 while((iter<niter) && derrv > convTol)
+
+    %size(aa)
+    %size(ux)
     
     % Index displacements to region index (FFT solver changes dimensions)
-    ssx = ux(pblmr1,pblmr2); 
-    ssy = uy(pblmr1,pblmr2);
+    %ssx = ux(pblmr1,pblmr2); 
+    %ssy = uy(pblmr1,pblmr2);
     
     %% p - q, interpolate.
-    qx = aa - ssx;        
-    qy = bb - ssy;
-    qtx = qtx + ssx; 
-    qty = qty + ssy; %% You can also interpolate with total disp.
-    
+    qx = aa - ux;        
+    qy = bb - uy;
+    qtx = qtx + ux; 
+    qty = qty + uy; %% You can also interpolate with total disp.
+        
     % Apply displacement with interpolation (suspect...)
     [bdx,bdy] = meshgrid(1:size(Xb,2),1:size(Xb,1));
     XXb1 = interp2(bdx,bdy,Xb,qx,qy,'makima');
     %XXb1 = bicutest(bdx,bdy,XXb1,bd+qx,bd+qy);
-    Xb = XXb1;        
+    Xb = XXb1;     
     
     %% Calc forcing here
     dq = (Xb - Y);
@@ -78,7 +86,7 @@ while((iter<niter) && derrv > convTol)
     [dXbx,dXby] = gradient(Xb(:,:));
     t1 = t1 - dXbx.*dq;            
     t2 = t2 - dXby.*dq;
-    
+
     %% Solve system at current iteration. Spectral solution.
     % Mode = even, 2 or 4 is all that is needed in most problems.
     % Yang and Ravela SCA method 2009 (Yang's Masters Thesis)
@@ -99,10 +107,13 @@ while((iter<niter) && derrv > convTol)
     xpy = (fac1 - fac2); 
     ypx = (fac4 - fac2);  
     zz = (fac1.*fac4 - fac2.*fac2) * wt/lscale;
+  
+    fux = (-fFx.*xpy + fac2.*fFy)./zz; ux = real(ifft2(ifftshift(fux), nx, ny));
+    fuy = (fFx.*fac2 - ypx.*fFy)./zz;  uy = real(ifft2(ifftshift(fuy), nx, ny));
     
-    fux = (-fFx.*xpy + fac2.*fFy)./zz; ux = real(ifft2(ifftshift(fux)));
-    fuy = (fFx.*fac2 - ypx.*fFy)./zz;  uy = real(ifft2(ifftshift(fuy)));
-   
+    %contourf(m, n, real(fuy))
+    %pause
+
     % Change in the max norm of displacements signals minimum
     errv1 = max(max(max(abs(ux))), max(max(abs(uy))));
     derrv = abs(errv1 - errv0);
