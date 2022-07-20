@@ -25,7 +25,7 @@ if __name__ == '__main__':
        fiinput = '../test_data/' + fname + '.nc'
        
        # Field Alignment tuning
-       niter = 1E4 # max iterations for spectral solver 
+       niter = 1E3 # max iterations for spectral solver 
        lscale = 1 #change from 1~10, 1 is the best (according to...)
        vmode = 4 #viscosity or hyperviscosity model (2 or 4)
        
@@ -39,7 +39,7 @@ if __name__ == '__main__':
        
        # Get the domain sizes
        nlon = lons.shape[0]
-       nlat = lats.shape[0]
+       nlat = lats.shape[0] 
        
        # Pull the operating variable to align along with the number of members
        hmemAll =  m_fid.variables['Flight_levelA'][:] # reventador1

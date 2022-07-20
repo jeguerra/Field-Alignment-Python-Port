@@ -70,7 +70,7 @@ def myImResize(IM, sz):
        by = np.arange(1,szin[0]+1)
        bdx,bdy = np.meshgrid(bx, by)
        
-       out_spmf = sp.interpolate.RectBivariateSpline(bx, by, IM.T, kx=5, ky=5)
+       out_spmf = sp.interpolate.RectBivariateSpline(bx, by, IM.T, kx=3, ky=3)
        out = out_spmf.ev(x.flatten(), y.flatten())
        out_2D = numericalCleanUp(np.reshape(out, x.shape, order='C'))
        
@@ -198,8 +198,16 @@ def computeAlignedEnsemble(niter, lscale, vmode, nlon, nlat, nmem, meml, hmemT):
                             QXT, QYT = computeSolverSCA(XX[imem], XX[jmem], 
                                           niter, 0.1, lscale, vmode)
                             
-                            qxTsave, qyTsave = computeResizeDisplacementOutputs(thisHmemT, thatHmemT, QXT, QYT) 
-                            
+                            qxTsave, qyTsave = computeResizeDisplacementOutputs(thisHmemT, thatHmemT, QXT, QYT)
+                            '''
+                            fig, ax = plt.subplots(2, 2)
+                            ax[0,0].contourf(QXT, cmap=cm.coolwarm)
+                            ax[0,1].contourf(qxTsave, cmap=cm.coolwarm)
+                            ax[1,0].contourf(XX[imem], cmap=cm.coolwarm)
+                            ax[1,1].contourf(XX[jmem], cmap=cm.coolwarm)
+                            plt.show()
+                            input('Displacement check.')
+                            '''
                             qxyT_mem[:,:,0,imem,jmem] = qxTsave
                             qxyT_mem[:,:,1,imem,jmem] = qyTsave
               
@@ -271,17 +279,19 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
            Xb = np.copy(X)
 
        # Set up the frequency domain
-       fxdom = 2 * np.round(0.5 * (lscale * nx + nx))
-       fydom = 2 * np.round(0.5 * (lscale * ny + ny))
+       fxdom = 2 * nx
+       fydom = 2 * ny
        nzero = np.array([1.0E-8]) # near zero frequency...
        
        nfs1 = np.array(np.arange(-fxdom/2,0)) # negative frequencies
-       pfs = np.array(np.arange(1,fxdom/2)) # positive frequencies
-       ffx = np.concatenate((nfs1, nzero, pfs))
+       pfs = np.array(np.arange(1,fxdom/2+1)) # positive frequencies
+       #ffx = np.concatenate((nfs1, nzero, pfs))
+       ffx = 2.0 * mt.pi / nx * np.concatenate((nfs1, pfs))
        
        nfs2 = np.array(np.arange(-fydom/2,0)) # negative frequencies
-       pfs = np.array(np.arange(1,fydom/2)) # positive frequencies
-       ffy = np.concatenate((nfs2, nzero, pfs))
+       pfs = np.array(np.arange(1,fydom/2+1)) # positive frequencies
+       #ffy = np.concatenate((nfs2, nzero, pfs))
+       ffy = 2.0 * mt.pi / ny * np.concatenate((nfs2, pfs))
        
        sdex1 = len(nfs1) # index to singularity x
        sdex2 = len(nfs2) # index to singularity y
@@ -304,8 +314,8 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
        
        xpy = fac1 - fac2
        ypx = fac4 - fac2
-       zz1 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(fxdom))
-       zz2 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(fydom))
+       zz1 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(m))
+       zz2 = (fac1 * fac4 - fac2 * fac2) * (wt * np.reciprocal(n))
        
        while (ii < niter) and (errv0 > convTol):
               
@@ -359,8 +369,8 @@ def computeSolverSCA(X, Y, niter, wt, lscale, mode):
               fuy = (fFx * fac2 - ypx * fFy) * np.reciprocal(zz2)
               
               # Recover displacements
-              ux = 0.5 * np.real(sp.fft.ifft2(sp.fft.ifftshift(fux), s=ux.shape))
-              uy = 0.5 * np.real(sp.fft.ifft2(sp.fft.ifftshift(fuy), s=uy.shape))
+              ux = np.real(sp.fft.ifft2(sp.fft.ifftshift(fux), s=ux.shape))
+              uy = np.real(sp.fft.ifft2(sp.fft.ifftshift(fuy), s=uy.shape))
                             
               # Change in the max-norm of displacements signals minimum
               errv1 = max(np.amax(np.abs(ux)), np.amax(np.abs(uy)))
